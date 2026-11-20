@@ -46,6 +46,23 @@ from pathlib import Path
 
 from workloads_common import build_op, make_inputs, suite_module, torch_dtype
 
+# Note for reviewers: why this file exists.
+#
+# Upstream examples/check.py judges every example with one rule:
+#     torch.allclose(got, want, atol, rtol)
+# That accepts a flushed subnormal, a -0 for +0 and an eps guard that does
+# nothing, and it rejects NaN even when both sides are NaN. The tests under
+# additional_tests cover exactly those cases, so each suite here adds its own
+# rules: bit-exact, class-by-class checks (relu, clamp, leakyrelu, edge), an
+# eps-guard check (eps), shape properties (sigtanh) and a ULP measurement (ulp).
+# A failure names the class that broke ("zero failed"). The bf16 and fp32
+# suites keep upstream's allclose check unmodified.
+#
+# Purpose of this file:
+# -> Builds each example with torch.compile, launches the saved kernel with
+#    spyre_cli.launch, and judges the result.
+# -> It is used only by the suites that need stricter rules than allclose.
+
 
 def _kernel_dirs(cache):
     return set(glob.glob(os.path.join(cache, "inductor-spyre", "*", "spyreCodeDir")))
@@ -78,14 +95,28 @@ def compile_one(ex, name, out):
 def launch_args(ex):
     """Extra device arguments the bundle takes between the inputs and the output.
 
-    The scalar form of the eps guard, ``rsqrt(x + 1e-6)``, is compiled with the
-    Python constant as a 0-d device tensor (``spyre_constant_tensor``), so the
-    bundle takes ``(x, constant, out)``. A standalone launch must pass it too.
+    A Python scalar in the op, such as ``rsqrt(x + 1e-6)`` or ``x * 6e-8``, is
+    compiled as a 0-d device tensor (``spyre_constant_tensor``), so the bundle
+    takes ``(x, constant, out)``. A standalone launch must pass it too, or
+    ``launch`` fails with "Number of inputs provided (2) does not match number
+    of inputs expected (3)".
+
+    The ``scalar_binary`` constant is built by ``spyre_constant_tensor`` itself,
+    as the compiled graph does, so a NaN, inf or subnormal constant reaches the
+    kernel the same way and is not altered by a host-to-device copy first.
     """
     import torch
 
     if ex.op == "rsqrt_eps" and ex.params["form"] == "scalar":
         return [torch.tensor(ex.params["eps"], dtype=torch_dtype(ex)).to("spyre")]
+    if ex.op == "scalar_binary":
+        from torch_spyre._inductor.op_spec import spyre_constant_tensor
+
+        return [
+            spyre_constant_tensor(
+                ex.params["scalar"], torch.device("spyre"), torch_dtype(ex)
+            )
+        ]
     return []
 
 

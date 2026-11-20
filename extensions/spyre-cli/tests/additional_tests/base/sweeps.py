@@ -44,12 +44,21 @@ from workloads_common import torch_dtype
 
 # Note for reviewers: why this file exists.
 #
-# Upstream builds inputs from a simple init spec such as "normal" or
-# "uniform:-88:88". Several suites need inputs chosen to hit specific values
-# (every 16-bit pattern, log-spaced subnormals, points around the 1e-6 eps
-# guard, a numerator x denominator grid). workloads_common.make_inputs hands
-# these spec kinds to sweeps.build. Random data would not reliably hit
-# subnormals or exact zeros.
+# Upstream examples/check.py judges every example with one rule:
+#     torch.allclose(got, want, atol, rtol)
+# That accepts a flushed subnormal, a -0 for +0 and an eps guard that does
+# nothing, and it rejects NaN even when both sides are NaN. The tests under
+# additional_tests cover exactly those cases, so each suite here adds its own
+# rules: bit-exact, class-by-class checks (relu, clamp, leakyrelu, edge), an
+# eps-guard check (eps), shape properties (sigtanh) and a ULP measurement (ulp).
+# A failure names the class that broke ("zero failed"). The bf16 and fp32
+# suites keep upstream's allclose check unmodified.
+#
+# Purpose of this file:
+# -> Builds the special inputs those rules need (every 16-bit pattern,
+#    subnormals, points around the eps guard, a division grid), since random
+#    data never produces NaN, zeros or subnormals.
+# -> workloads_common.make_inputs hands the spec kinds below to sweeps.build.
 KINDS = ("bits16", "sweep", "eps", "grid")
 
 

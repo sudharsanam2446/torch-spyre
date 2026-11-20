@@ -57,6 +57,11 @@ from workloads_common import (  # noqa: E402
     torch_dtype,
 )
 
+# Purpose of this file:
+# -> Each suite folder has one `<suite>_examples.py` that defines an `EXAMPLES`
+#    dict. `test_workloads.py` finds those folders, loads each dict and builds
+#    tests from it:
+
 GROUP = GROUP_DIR.name
 SUITES = {name: load_examples(name, GROUP) for name in suite_names(GROUP)}
 ALLCLOSE = {s: e for s, e in SUITES.items() if not any(x.check for x in e.values())}
@@ -72,7 +77,7 @@ WORKLOADS = {
 }  # fmt: skip
 EXPECTED_SUITES = {
     "bf16", "fp32", "ulp", "sigmoid_tanh", "relu", "clamp", "leakyrelu",
-    "rsqrt_eps", "edge_cases",
+    "rsqrt_eps", "subnormal-zero-nonfinite-edge-cases",
 }  # fmt: skip
 
 
@@ -301,7 +306,7 @@ class TestEpsGuard:
 class TestEdgeCases:
     @pytest.mark.parametrize("fmt", ("fp16", "bf16"))
     def test_reciprocal_faults(self, fmt):
-        ex = _ex("edge_cases", f"reciprocal_{fmt}_edge")
+        ex = _ex("subnormal-zero-nonfinite-edge-cases", f"reciprocal_{fmt}_edge")
         inputs, good = _case(ex)
         (x,) = inputs
         tiny = torch.finfo(x.dtype).tiny
@@ -313,7 +318,7 @@ class TestEdgeCases:
 
     @pytest.mark.parametrize("fmt", ("fp16", "bf16"))
     def test_div_faults(self, fmt):
-        ex = _ex("edge_cases", f"div_{fmt}_edge")
+        ex = _ex("subnormal-zero-nonfinite-edge-cases", f"div_{fmt}_edge")
         inputs, good = _case(ex)
         a, b = inputs
         tiny = torch.finfo(b.dtype).tiny
@@ -322,12 +327,12 @@ class TestEdgeCases:
         tiny_b = (b != 0) & b.isfinite() & (b.abs() < tiny) & a.isfinite() & (a != 0)
         assert "tiny_divisor" in _failing(ex, inputs, _set(good, tiny_b, 0.0))
 
-    @pytest.mark.parametrize("name", sorted(n for n in JUDGED["edge_cases"] if n.startswith("scalar_")))
+    @pytest.mark.parametrize("name", sorted(n for n in JUDGED["subnormal-zero-nonfinite-edge-cases"] if n.startswith("scalar_")))
     def test_scalar_ops_accept_either_reference(self, name):
         """The scalar rounded to the dtype is also an acceptable device result."""
         import criteria
 
-        ex = _ex("edge_cases", name)
+        ex = _ex("subnormal-zero-nonfinite-edge-cases", name)
         inputs = make_inputs(ex)
         for reference in criteria.edge_references(ex):
             got = reference(*inputs)
@@ -408,7 +413,7 @@ def stub_device(monkeypatch):
         ("sigmoid_tanh", "tanh_fp16_props"),
         ("rsqrt_eps", "rsqrt_eps_scalar_fp16"),
         ("rsqrt_eps", "rsqrt_eps_tensor_fp32"),
-        ("edge_cases", "div_bf16_edge"),
+        ("subnormal-zero-nonfinite-edge-cases", "div_bf16_edge"),
         ("ulp", "exp_fp16_ulp"),
     ],
 )

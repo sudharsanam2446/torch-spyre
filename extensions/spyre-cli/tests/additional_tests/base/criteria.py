@@ -44,16 +44,20 @@ from workloads_common import build_op, torch_dtype
 
 # Note for reviewers: why this file exists.
 #
-# Upstream examples/check.py has one pass rule: torch.allclose(got, want, atol,
-# rtol). That cannot express most of what the "Missing Tests" sheet asks for
-# (bit-exact ReLU / clamp, flushed subnormals, sign of zero, monotonicity,
-# symmetry, NaN / inf handling, an eps guard that does nothing).
+# Upstream examples/check.py judges every example with one rule:
+#     torch.allclose(got, want, atol, rtol)
+# That accepts a flushed subnormal, a -0 for +0 and an eps guard that does
+# nothing, and it rejects NaN even when both sides are NaN. The tests under
+# additional_tests cover exactly those cases, so each suite here adds its own
+# rules: bit-exact, class-by-class checks (relu, clamp, leakyrelu, edge), an
+# eps-guard check (eps), shape properties (sigtanh) and a ULP measurement (ulp).
+# A failure names the class that broke ("zero failed"). The bf16 and fp32
+# suites keep upstream's allclose check unmodified.
 #
-# This file holds the named pass/fail rules the sheet needs, one family per
-# suite (relu, clamp, leakyrelu, sigtanh, eps, edge). A failure is reported per
-# class ("zero failed"), where a single allclose would give one yes/no for the
-# whole tensor. The bf16 and fp32 suites do not use this file: they run
-# upstream's own allclose check unmodified.
+# Purpose of this file:
+# -> Holds the pass/fail rules (bit-exact per input class, eps guard, monotonic
+#    and symmetric, edge cases). A failure names the class that broke, such as
+#    "zero failed". See criteria_for and evaluate below.
 
 # --------------------------------------------------------------------------
 # Helpers for 16-bit formats

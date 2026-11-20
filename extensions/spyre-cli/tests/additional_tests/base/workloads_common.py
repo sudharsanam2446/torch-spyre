@@ -38,6 +38,11 @@ import importlib.util
 import sys
 from pathlib import Path
 
+# Purpose of this file:
+# -> The shared foundation: the Example definition, the op behind each example,
+#    input generation (make_inputs), the CPU reference (expected), and the code
+#    that finds and loads suites and upstream's code.
+
 BASE = Path(__file__).resolve().parent  # additional_tests/base
 ADDITIONAL = BASE.parent  # additional_tests
 UPSTREAM = ADDITIONAL.parent.parent / "examples"  # extensions/spyre-cli/examples

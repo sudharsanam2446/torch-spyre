@@ -17,7 +17,7 @@ tests/additional_tests/
   vector-trancendental-math-workloads/
     test_workloads.py       pytest wrapper + CPU tests of every criterion
     bf16/ fp32/             allclose suites, checked by upstream code
-    ulp/ sigmoid_tanh/ relu/ clamp/ leakyrelu/ rsqrt_eps/ edge_cases/
+    ulp/ sigmoid_tanh/ relu/ clamp/ leakyrelu/ rsqrt_eps/ subnormal-zero-nonfinite-edge-cases/
                             suites checked by base/check.py
     ulp/ulp_metric.py       the ULP metric and its float64 references (ulp only)
 ```
@@ -67,7 +67,7 @@ python3 base/run_all.py --out /tmp/kernels       # build elsewhere (<out>/<suite
 SPYRE_MAX_ULP=1.5 python3 base/run_all.py ulp    # gate every ULP example at 1.5
 
 python3 -m pytest vector-trancendental-math-workloads/test_workloads.py -v
-python3 -m pytest vector-trancendental-math-workloads/test_workloads.py -v -k edge_cases
+python3 -m pytest vector-trancendental-math-workloads/test_workloads.py -v -k subnormal-zero-nonfinite-edge-cases
 ```
 
 A failing example does not stop the run; if it fails to build its check is
@@ -84,8 +84,8 @@ A failing example does not stop the run; if it fails to build its check is
 | 5 no LeakyReLU | `leakyrelu` | 4: fp16 / bf16, slopes 0.01 and 0.2 | positive bit-exact, negative within 1 ULP, subnormals, zeros, inf/nan |
 | 7 no bit-exact | `relu`, `clamp` | 2 + 2 | every 16-bit pattern, compared bit for bit |
 | 8 no monotonicity / symmetry | `sigmoid_tanh` | 4 | monotonic, bounded, symmetry, anchors |
-| 9 subnormal / zero-division weak | `edge_cases` | 14 `scalar_*` | NaN kept, inf / zero bit-exact, others within 1 ULP |
-| 10 reciprocal hides near-zero | `edge_cases` | 4: reciprocal and div, fp16 / bf16 | same |
+| 9 subnormal / zero-division weak | `subnormal-zero-nonfinite-edge-cases` | 14 `scalar_*` | NaN kept, inf / zero bit-exact, others within 1 ULP |
+| 10 reciprocal hides near-zero | `subnormal-zero-nonfinite-edge-cases` | 4: reciprocal and div, fp16 / bf16 | same |
 | 12 eps guard 1e-6 | `rsqrt_eps` | 6: scalar / tensor form, fp16 / bf16 / fp32 | result finite and within rtol of `rsqrt(x + 1e-6)` |
 
 Not covered: 2 (domain sweep as such; the `ulp`, `bf16` and `fp32` suites do sweep
